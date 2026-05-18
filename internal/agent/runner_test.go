@@ -270,6 +270,56 @@ func validRunResult(mutators ...func(*RunResult)) RunResult {
 	return result
 }
 
+func TestRunResultHasAuditFields(t *testing.T) {
+	result := RunResult{
+		Role:         "developer",
+		Issue:        IssueRef{Repository: "PolarKits/PolarSwarm", Number: 5},
+		Branch:       "agent/mock-runner",
+		Status:       StatusCompleted,
+		Verification: "unit verification completed",
+		Confidence:   0.95,
+		BackendID:    "mock",
+		ModelID:      "mock-model",
+		DurationMs:   12345,
+	}
+
+	payload, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal result: %v", err)
+	}
+
+	for _, want := range []string{`"backend_id"`, `"model_id"`, `"duration_ms"`} {
+		if !strings.Contains(string(payload), want) {
+			t.Fatalf("result JSON missing %s: %s", want, payload)
+		}
+	}
+}
+
+func TestResultHasAuditFields(t *testing.T) {
+	result := Result{
+		Role:         "developer",
+		Issue:        IssueRef{Repository: "PolarKits/PolarSwarm", Number: 5},
+		Branch:       "agent/mock-runner",
+		Status:       StatusCompleted,
+		Verification: "unit verification completed",
+		Confidence:   0.95,
+		BackendID:    "opencode",
+		ModelID:      "claude-sonnet-4-6",
+		DurationMs:   45000,
+	}
+
+	payload, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("marshal result: %v", err)
+	}
+
+	for _, want := range []string{`"backend_id"`, `"model_id"`, `"duration_ms"`} {
+		if !strings.Contains(string(payload), want) {
+			t.Fatalf("result JSON missing %s: %s", want, payload)
+		}
+	}
+}
+
 func validRunRequest(mutators ...func(*RunRequest)) RunRequest {
 	req := RunRequest{
 		Role:   "developer",

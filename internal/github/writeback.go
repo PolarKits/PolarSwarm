@@ -18,6 +18,52 @@ const (
 	agentResultType      = "agent_result"
 )
 
+// maskedReplacement is the replacement string for matched secrets.
+const maskedReplacement = "***"
+
+// MaskSecrets replaces known secret patterns in the input string with "***".
+// This prevents accidental secret leakage in logs, comments, and audit records.
+// The function scans for common secret formats including Bearer tokens,
+// API keys (including sk-ant-* Anthropic keys), GitHub tokens, and generic
+// credentials, replacing them with "***". Multiple occurrences are all masked.
+func MaskSecrets(input string) string {
+	if input == "" {
+		return input
+	}
+	result := input
+	// Prefixes for common secret patterns. GitHub tokens use specific prefixes
+	// (ghp_, ghs_, gho_, ghu_, gh_). Bearer tokens use "bearer " with JWT-like content.
+	// API keys may have various formats including sk-ant-* for Anthropic.
+	prefixes := []string{
+		"bearer ", "api_key=", "api-key=", "token=", "secret=", "password=",
+		"ghp_", "ghs_", "gho_", "ghu_", "gh_",
+		"sk-ant-",
+	}
+	// Characters that indicate end of a secret value.
+	// Includes standard terminators plus dots and dashes common in JWTs/base64 tokens.
+	secretTerminators := " \n\"',"
+	// Loop until no more secrets found (handles multiple tokens in one string)
+	changed := true
+	for changed {
+		changed = false
+		for _, prefix := range prefixes {
+			lower := strings.ToLower(result)
+			idx := strings.Index(lower, prefix)
+			if idx >= 0 {
+				end := idx + len(prefix)
+				// Find end of the secret
+				for end < len(result) && !strings.Contains(secretTerminators, string(result[end])) {
+					end++
+				}
+				result = result[:idx] + maskedReplacement + result[end:]
+				changed = true
+				break // restart scanning from beginning after each replacement
+			}
+		}
+	}
+	return result
+}
+
 type WriteOptions struct {
 	DryRun        bool
 	ConfirmWrites bool
@@ -64,6 +110,9 @@ type AgentResultComment struct {
 	Confidence   float64        `json:"confidence"`
 	Message      string         `json:"message,omitempty"`
 	Error        string         `json:"error,omitempty"`
+	BackendID    string         `json:"backend_id,omitempty"`
+	ModelID      string         `json:"model_id,omitempty"`
+	DurationMs   int64          `json:"duration_ms,omitempty"`
 	TS           string         `json:"ts"`
 }
 
@@ -129,7 +178,10 @@ func RenderAgentResultComment(result agent.Result, now time.Time) (string, error
 		Verification: result.Verification,
 		Confidence:   result.Confidence,
 		Message:      result.Message,
-		Error:        result.Error,
+		Error:        MaskSecrets(result.Error),
+		BackendID:    result.BackendID,
+		ModelID:      result.ModelID,
+		DurationMs:   result.DurationMs,
 		TS:           now.UTC().Format(time.RFC3339),
 	}
 	content, err := json.MarshalIndent(payload, "", "  ")

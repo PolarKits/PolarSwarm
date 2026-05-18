@@ -85,6 +85,14 @@ type RunResult struct {
 	Confidence   float64  `json:"confidence"`
 	Message      string   `json:"message,omitempty"`
 	Error        string   `json:"error,omitempty"`
+	// BackendID is the identifier of the backend that executed this result.
+	// Examples: "opencode", "claude-code", "mock", "api:anthropic"
+	BackendID string `json:"backend_id,omitempty"`
+	// ModelID is the model or command identifier used by the backend.
+	// Examples: "claude-sonnet-4-6", "o4-mini", "anthropic:claude-sonnet-4-6"
+	ModelID string `json:"model_id,omitempty"`
+	// DurationMs is the wall-clock execution time in milliseconds.
+	DurationMs int64 `json:"duration_ms,omitempty"`
 }
 
 // Success reports whether the result may be treated as a successful Agent run.
@@ -168,6 +176,12 @@ type Result struct {
 	Confidence   float64  `json:"confidence"`
 	Message      string   `json:"message,omitempty"`
 	Error        string   `json:"error,omitempty"`
+	// BackendID is the identifier of the backend that executed this result.
+	BackendID string `json:"backend_id,omitempty"`
+	// ModelID is the model or command identifier used by the backend.
+	ModelID string `json:"model_id,omitempty"`
+	// DurationMs is the wall-clock execution time in milliseconds.
+	DurationMs int64 `json:"duration_ms,omitempty"`
 }
 
 // Success reports whether the result may be treated as a successful Agent run.
