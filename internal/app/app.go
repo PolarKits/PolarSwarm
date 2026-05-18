@@ -10,6 +10,7 @@ import (
 
 	"github.com/PolarKits/PolarSwarm/internal/agent"
 	"github.com/PolarKits/PolarSwarm/internal/config"
+	"github.com/PolarKits/PolarSwarm/internal/doctor"
 	gh "github.com/PolarKits/PolarSwarm/internal/github"
 	"github.com/PolarKits/PolarSwarm/internal/workflow"
 )
@@ -54,6 +55,8 @@ func (c CLI) Run(args []string) error {
 	case "version", "-v", "--version":
 		fmt.Fprintf(c.Stdout, "polarswarm %s\n", Version)
 		return nil
+	case "doctor":
+		return c.runDoctor(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
@@ -388,6 +391,102 @@ func (c CLI) runIssue(args []string) error {
 	return nil
 }
 
+func (c CLI) runDoctor(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing doctor command: config, github, labels, llm, capabilities, workflows, store, worktrees, or --list")
+	}
+
+	switch args[0] {
+	case "github":
+		return c.runDoctorGitHub(args[1:])
+	case "config":
+		return c.runDoctorConfig()
+	case "labels":
+		return c.runDoctorLabels()
+	case "--list":
+		c.listDoctorCategories()
+		return nil
+	default:
+		return fmt.Errorf("unknown doctor command %q", args[0])
+	}
+}
+
+func (c CLI) runDoctorGitHub(args []string) error {
+	var owner, repo string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--repo":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--repo requires owner/name")
+			}
+			parsed, err := parseRepository(args[i])
+			if err != nil {
+				return err
+			}
+			owner = parsed.Owner
+			repo = parsed.Name
+		default:
+			return fmt.Errorf("unknown doctor github argument %q", args[i])
+		}
+	}
+
+	// Load config if available to get owner/repo
+	cfg, err := config.Load(config.DefaultPath)
+	if err == nil && owner == "" {
+		owner = cfg.GitHub.Owner
+		repo = cfg.GitHub.Repo
+	}
+
+	g := doctor.GitHub{
+		Owner:  owner,
+		Repo:   repo,
+		Output: c.Stdout,
+	}
+
+	results, err := g.Run(context.Background())
+	if err != nil {
+		// Error already printed, just return it
+		return err
+	}
+
+	// Print summary
+	fmt.Fprintf(c.Stdout, "\nSummary: %s\n", doctor.FormatSummary(results))
+	if doctor.HasFailures(results) {
+		return fmt.Errorf("github health check failed")
+	}
+	return nil
+}
+
+func (c CLI) runDoctorConfig() error {
+	path := config.DefaultPath
+	cfg, err := config.Load(path)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(c.Stdout, "[ config ]  ok  %s\n", cfg.Summary())
+	return nil
+}
+
+func (c CLI) runDoctorLabels() error {
+	// TODO: implement labels check
+	fmt.Fprintf(c.Stdout, "[ labels ]  not yet implemented\n")
+	return nil
+}
+
+func (c CLI) listDoctorCategories() {
+	fmt.Fprintln(c.Stdout, "Available doctor categories:")
+	fmt.Fprintln(c.Stdout, "  config         - Check configuration files")
+	fmt.Fprintln(c.Stdout, "  github         - Check GitHub token and repository access")
+	fmt.Fprintln(c.Stdout, "  labels         - Check repository labels")
+	fmt.Fprintln(c.Stdout, "  capabilities   - Check GitHub capabilities")
+	fmt.Fprintln(c.Stdout, "  workflows      - Check GitHub Actions workflows")
+	fmt.Fprintln(c.Stdout, "  store          - Check local data store")
+	fmt.Fprintln(c.Stdout, "  worktrees      - Check git worktrees")
+	fmt.Fprintln(c.Stdout, "  llm            - Check LLM backend connectivity (uses tokens)")
+}
+
 func formatLabels(labels []gh.Label) string {
 	if len(labels) == 0 {
 		return "(none)"
@@ -422,6 +521,9 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "  polarswarm help")
 	fmt.Fprintln(w, "  polarswarm acceptance dry-run --repo owner/name --number n --fixture path [--target-label status:state] [--force-failure]")
 	fmt.Fprintln(w, "  polarswarm config check [--config path]")
+	fmt.Fprintln(w, "  polarswarm doctor github [--repo owner/name]")
+	fmt.Fprintln(w, "  polarswarm doctor config")
+	fmt.Fprintln(w, "  polarswarm doctor labels")
 	fmt.Fprintln(w, "  polarswarm issue read --repo owner/name --number n --fixture path")
 	fmt.Fprintln(w, "  polarswarm writeback dry-run --repo owner/name --number n --fixture path [--target-state state]")
 	fmt.Fprintln(w, "  polarswarm version")
