@@ -272,7 +272,7 @@ func (c CLI) runWriteback(args []string) error {
 		return err
 	}
 
-	result, err := (agent.MockRunner{Status: status}).Run(context.Background(), agent.Request{
+	result, err := (agent.MockRunner{Status: status}).Run(context.Background(), agent.RunRequest{
 		Role: role,
 		Issue: agent.IssueRef{
 			Repository: repo.String(),

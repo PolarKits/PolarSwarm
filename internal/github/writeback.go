@@ -116,7 +116,7 @@ type AgentResultComment struct {
 	TS           string         `json:"ts"`
 }
 
-func PlanAgentResultWrite(result agent.Result, existingLabels []string, target workflow.State, opts WriteOptions) (WritePlan, error) {
+func PlanAgentResultWrite(result agent.RunResult, existingLabels []string, target workflow.State, opts WriteOptions) (WritePlan, error) {
 	if err := result.Validate(); err != nil {
 		return WritePlan{}, err
 	}
@@ -161,7 +161,7 @@ func PlanAgentResultWrite(result agent.Result, existingLabels []string, target w
 	}, nil
 }
 
-func RenderAgentResultComment(result agent.Result, now time.Time) (string, error) {
+func RenderAgentResultComment(result agent.RunResult, now time.Time) (string, error) {
 	if err := result.Validate(); err != nil {
 		return "", err
 	}

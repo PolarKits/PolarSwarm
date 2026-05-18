@@ -15,7 +15,7 @@ import (
 
 type AcceptanceLoop struct {
 	Reader    gh.Reader
-	Runner    agent.Runner
+	Runner    agent.BackendRunner
 	Processed map[string]bool
 	Now       time.Time
 }
@@ -33,7 +33,7 @@ type AcceptanceResult struct {
 	Issue       gh.Issue
 	Current     workflow.State
 	Target      workflow.State
-	AgentResult agent.Result
+	AgentResult agent.RunResult
 	WritePlan   gh.WritePlan
 	OperationID string
 	Skipped     bool
@@ -92,7 +92,7 @@ func (l *AcceptanceLoop) Run(ctx context.Context, opts AcceptanceOptions) (Accep
 		return AcceptanceResult{}, fmt.Errorf("target_label %q does not match current workflow state %q", opts.Config.Workflow.TargetLabel, current)
 	}
 
-	result, err := l.Runner.Run(ctx, agent.Request{
+	result, err := l.Runner.Run(ctx, agent.RunRequest{
 		Role: opts.Role,
 		Issue: agent.IssueRef{
 			Repository: opts.Repository.String(),
@@ -147,7 +147,7 @@ func (l *AcceptanceLoop) Run(ctx context.Context, opts AcceptanceOptions) (Accep
 	}, nil
 }
 
-func acceptanceOperationID(result agent.Result, target workflow.State) string {
+func acceptanceOperationID(result agent.RunResult, target workflow.State) string {
 	return fmt.Sprintf("%s#%d:%s:%s:%s:%s", result.Issue.Repository, result.Issue.Number, result.Role, result.Branch, result.Status, target)
 }
 

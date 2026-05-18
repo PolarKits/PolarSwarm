@@ -183,8 +183,8 @@ func TestWritePlanExecuteOrder(t *testing.T) {
 	}
 }
 
-func testAgentResult() agent.Result {
-	return agent.Result{
+func testAgentResult() agent.RunResult {
+	return agent.RunResult{
 		Role: "developer",
 		Issue: agent.IssueRef{
 			Repository: "PolarKits/PolarSwarm",
