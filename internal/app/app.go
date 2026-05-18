@@ -470,8 +470,30 @@ func (c CLI) runDoctorConfig() error {
 }
 
 func (c CLI) runDoctorLabels() error {
-	// TODO: implement labels check
-	fmt.Fprintf(c.Stdout, "[ labels ]  not yet implemented\n")
+	// Load config to get owner/repo
+	cfg, err := config.Load(config.DefaultPath)
+	if err != nil {
+		// Config not required for labels check - might be run before init
+		fmt.Fprintf(c.Stderr, "[ labels ]  %s  Config not found, using defaults\n", "⚠")
+	}
+
+	l := doctor.Labels{
+		Owner:  cfg.GitHub.Owner,
+		Repo:   cfg.GitHub.Repo,
+		Output: c.Stdout,
+	}
+
+	result, err := l.Run(context.Background())
+	if err != nil {
+		return err
+	}
+
+	// Print summary
+	if len(result.Missing) > 0 || len(result.Mismatches) > 0 {
+		fmt.Fprintf(c.Stdout, "\nMissing %d of %d standard labels\n", len(result.Missing), result.Total)
+		return nil
+	}
+	fmt.Fprintf(c.Stdout, "\nAll %d standard labels present\n", result.Total)
 	return nil
 }
 

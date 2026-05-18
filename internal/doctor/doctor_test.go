@@ -195,3 +195,134 @@ func TestFormatSummary(t *testing.T) {
 		t.Errorf("summary should contain errors=1, got %q", summary)
 	}
 }
+
+func TestStandardLabels(t *testing.T) {
+	labels := StandardLabels()
+
+	// Count labels by category
+	statusCount := 0
+	agentCount := 0
+	decisionCount := 0
+	priorityCount := 0
+	effortCount := 0
+
+	for _, l := range labels {
+		switch {
+		case strings.HasPrefix(l.Name, "status:"):
+			statusCount++
+		case strings.HasPrefix(l.Name, "agent:"):
+			agentCount++
+		case strings.HasPrefix(l.Name, "decision:"):
+			decisionCount++
+		case strings.HasPrefix(l.Name, "priority:"):
+			priorityCount++
+		case strings.HasPrefix(l.Name, "effort:"):
+			effortCount++
+		}
+	}
+
+	// Verify total count: 10 + 12 + 3 + 4 + 6 = 35
+	if len(labels) != 35 {
+		t.Errorf("StandardLabels() count = %d, want 35", len(labels))
+	}
+
+	// Verify category counts per PolarSwarm.md
+	if statusCount != 10 {
+		t.Errorf("status labels = %d, want 10", statusCount)
+	}
+	if agentCount != 12 {
+		t.Errorf("agent labels = %d, want 12", agentCount)
+	}
+	if decisionCount != 3 {
+		t.Errorf("decision labels = %d, want 3", decisionCount)
+	}
+	if priorityCount != 4 {
+		t.Errorf("priority labels = %d, want 4", priorityCount)
+	}
+	if effortCount != 6 {
+		t.Errorf("effort labels = %d, want 6", effortCount)
+	}
+}
+
+func TestStandardLabelsContainsRequiredLabels(t *testing.T) {
+	labels := StandardLabels()
+	labelMap := make(map[string]StandardLabel)
+	for _, l := range labels {
+		labelMap[l.Name] = l
+	}
+
+	// Verify specific labels that are mentioned as important in PolarSwarm.md
+	required := []string{
+		"status:pending-triage",
+		"status:rework",
+		"agent:merger",
+	}
+
+	for _, name := range required {
+		if _, ok := labelMap[name]; !ok {
+			t.Errorf("StandardLabels missing required label: %s", name)
+		}
+	}
+}
+
+func TestFilterByPrefix(t *testing.T) {
+	labels := []StandardLabel{
+		{Name: "status:new", Color: "0075ca"},
+		{Name: "status:done", Color: "2ea44f"},
+		{Name: "agent:developer", Color: "bfd4f2"},
+		{Name: "priority:high", Color: "e4e669"},
+	}
+
+	status := filterByPrefix(labels, "status:")
+	if len(status) != 2 {
+		t.Errorf("filterByPrefix status = %d, want 2", len(status))
+	}
+
+	agent := filterByPrefix(labels, "agent:")
+	if len(agent) != 1 {
+		t.Errorf("filterByPrefix agent = %d, want 1", len(agent))
+	}
+
+	none := filterByPrefix(labels, "decision:")
+	if len(none) != 0 {
+		t.Errorf("filterByPrefix decision = %d, want 0", len(none))
+	}
+}
+
+func TestLabelMismatch(t *testing.T) {
+	m := LabelMismatch{
+		Name:     "status:new",
+		Field:    "color",
+		Expected: "0075ca",
+		Actual:   "ff0000",
+	}
+
+	if m.Field != "color" {
+		t.Errorf("LabelMismatch.Field = %q, want %q", m.Field, "color")
+	}
+	if m.Expected != "0075ca" {
+		t.Errorf("LabelMismatch.Expected = %q, want %q", m.Expected, "0075ca")
+	}
+	if m.Actual != "ff0000" {
+		t.Errorf("LabelMismatch.Actual = %q, want %q", m.Actual, "ff0000")
+	}
+}
+
+func TestLabelCheckResult(t *testing.T) {
+	result := &LabelCheckResult{
+		Present:    30,
+		Total:      35,
+		Missing:    []string{"status:pending-triage", "agent:merger"},
+		Mismatches: []LabelMismatch{},
+	}
+
+	if result.Present != 30 {
+		t.Errorf("LabelCheckResult.Present = %d, want 30", result.Present)
+	}
+	if result.Total != 35 {
+		t.Errorf("LabelCheckResult.Total = %d, want 35", result.Total)
+	}
+	if len(result.Missing) != 2 {
+		t.Errorf("LabelCheckResult.Missing len = %d, want 2", len(result.Missing))
+	}
+}
