@@ -3,6 +3,7 @@ specs/
 tasks/
 PolarSwarm.md
 PolarSwarm-DocsGithub-Audit-Report.md
+CLAUDE.md
 
 # Local runtime state.
 .polarswarm/
@@ -15,4 +16,3 @@ coverage.out
 # OS/editor noise.
 .DS_Store
 *.swp
-

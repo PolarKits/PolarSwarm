@@ -28,7 +28,7 @@ Milestone tasks should cite the relevant module document plus the cross-cutting 
 ```text
 @docs/modules/workflow.md
 @docs/issueops-model.md
-@specs/M1/T008-minimal-state-machine.md
+@specs/M1/T004-minimal-state-machine.md
 ```
 
 When a module needs behavior not covered here, update the smallest relevant docs first. Do not hide product changes inside a task file.
