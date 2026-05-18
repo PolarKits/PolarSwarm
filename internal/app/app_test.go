@@ -115,3 +115,43 @@ func TestCLIIssueReadRequiresFixture(t *testing.T) {
 		t.Fatal("expected error for missing fixture")
 	}
 }
+
+func TestCLIWritebackDryRunFixture(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "issues.json")
+	content := `{
+  "issues": [
+    {
+      "repository": {"owner": "PolarKits", "name": "PolarSwarm"},
+      "number": 6,
+      "title": "Writeback planner",
+      "state": "open",
+      "labels": [{"name": "status:in-progress"}, {"name": "area:github"}],
+      "comments": []
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var out bytes.Buffer
+	cli := CLI{Stdout: &out}
+
+	err := cli.Run([]string{"writeback", "dry-run", "--repo", "PolarKits/PolarSwarm", "--number", "6", "--fixture", path})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	output := out.String()
+	for _, want := range []string{
+		"dry-run write plan for PolarKits/PolarSwarm#6",
+		"```polarswarm-agent-result",
+		`"role": "developer"`,
+		"remove label: status:in-progress",
+		"add label: status:review",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("writeback dry-run output missing %q: %q", want, output)
+		}
+	}
+}

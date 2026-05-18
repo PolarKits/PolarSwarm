@@ -23,8 +23,9 @@ type GitHubConfig struct {
 }
 
 type WorkflowConfig struct {
-	TargetLabel string
-	DryRun      bool
+	TargetLabel   string
+	DryRun        bool
+	ConfirmWrites bool
 }
 
 func Load(path string) (Config, error) {
@@ -64,7 +65,7 @@ func (c Config) Validate(path string) error {
 }
 
 func (c Config) Summary() string {
-	return fmt.Sprintf("github=%s/%s target_label=%s dry_run=%t", c.GitHub.Owner, c.GitHub.Repo, c.Workflow.TargetLabel, c.Workflow.DryRun)
+	return fmt.Sprintf("github=%s/%s target_label=%s dry_run=%t confirm_writes=%t", c.GitHub.Owner, c.GitHub.Repo, c.Workflow.TargetLabel, c.Workflow.DryRun, c.Workflow.ConfirmWrites)
 }
 
 func parse(path, content string) (Config, error) {
@@ -161,6 +162,12 @@ func assign(cfg *Config, path string, lineNo int, section, key, raw string) erro
 				return err
 			}
 			cfg.Workflow.DryRun = value
+		case "confirm_writes":
+			value, err := parseBool(path, lineNo, raw)
+			if err != nil {
+				return err
+			}
+			cfg.Workflow.ConfirmWrites = value
 		}
 	case "runtime":
 		switch key {
@@ -170,6 +177,12 @@ func assign(cfg *Config, path string, lineNo int, section, key, raw string) erro
 				return err
 			}
 			cfg.Workflow.DryRun = value
+		case "confirm_writes":
+			value, err := parseBool(path, lineNo, raw)
+			if err != nil {
+				return err
+			}
+			cfg.Workflow.ConfirmWrites = value
 		}
 	}
 

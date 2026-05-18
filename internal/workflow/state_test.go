@@ -161,6 +161,42 @@ func TestProjectStatusLabels(t *testing.T) {
 	}
 }
 
+func TestStateFromLabels(t *testing.T) {
+	tests := []struct {
+		name    string
+		labels  []string
+		want    State
+		wantErr string
+	}{
+		{name: "single status", labels: []string{"area:workflow", "status:review"}, want: StateReview},
+		{name: "duplicate same status", labels: []string{"status:review", "status:review"}, want: StateReview},
+		{name: "missing status", labels: []string{"area:workflow"}, wantErr: "missing workflow status label"},
+		{name: "multiple statuses", labels: []string{"status:new", "status:review"}, wantErr: "multiple workflow status labels"},
+		{name: "invalid status", labels: []string{"status:blocked"}, wantErr: "invalid label workflow state"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := StateFromLabels(tt.labels)
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("StateFromLabels returned error: %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("unexpected state: got %q want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func countStatusLabels(labels []string) int {
 	var count int
 	for _, label := range labels {

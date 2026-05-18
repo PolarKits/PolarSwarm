@@ -16,6 +16,7 @@ repo = "PolarSwarm"
 [workflow]
 target_label = "status:new"
 dry_run = false
+confirm_writes = true
 `)
 
 	cfg, err := Load(path)
@@ -31,6 +32,9 @@ dry_run = false
 	}
 	if cfg.Workflow.DryRun {
 		t.Fatal("expected explicit dry_run=false")
+	}
+	if !cfg.Workflow.ConfirmWrites {
+		t.Fatal("expected explicit confirm_writes=true")
 	}
 }
 
@@ -99,6 +103,9 @@ repo = "PolarSwarm"
 	if !cfg.Workflow.DryRun {
 		t.Fatal("expected dry_run to default to true")
 	}
+	if cfg.Workflow.ConfirmWrites {
+		t.Fatal("expected confirm_writes to default to false")
+	}
 }
 
 func TestSummaryDoesNotIncludeUnknownSecretFields(t *testing.T) {
@@ -117,6 +124,9 @@ token = "ghp_should_not_appear"
 	summary := cfg.Summary()
 	if strings.Contains(summary, "ghp_should_not_appear") || strings.Contains(summary, "token") {
 		t.Fatalf("summary leaked secret-like field: %q", summary)
+	}
+	if !strings.Contains(summary, "confirm_writes=false") {
+		t.Fatalf("summary missing confirm_writes: %q", summary)
 	}
 }
 

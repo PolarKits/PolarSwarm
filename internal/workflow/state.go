@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -116,6 +117,28 @@ func ProjectStatusLabels(labels []string, target State) (LabelProjection, error)
 		Add:    add,
 		Labels: result,
 	}, nil
+}
+
+// StateFromLabels returns the single current workflow state projected by status labels.
+func StateFromLabels(labels []string) (State, error) {
+	var current State
+	for _, label := range labels {
+		if !strings.HasPrefix(label, statusLabelPrefix) {
+			continue
+		}
+		state := State(strings.TrimPrefix(label, statusLabelPrefix))
+		if err := validateState("label", state); err != nil {
+			return "", err
+		}
+		if current != "" && current != state {
+			return "", fmt.Errorf("multiple workflow status labels: %q and %q", current.Label(), state.Label())
+		}
+		current = state
+	}
+	if current == "" {
+		return "", errors.New("missing workflow status label")
+	}
+	return current, nil
 }
 
 func validateState(name string, state State) error {
