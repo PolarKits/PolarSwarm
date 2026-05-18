@@ -12,6 +12,46 @@ import (
 	"github.com/PolarKits/PolarSwarm/internal/workflow"
 )
 
+func TestBuildOpIDFormat(t *testing.T) {
+	id := BuildOpID("PolarKits/PolarSwarm", 6, WriteCreateComment, "body", 1)
+	if !strings.HasPrefix(id, "op:") {
+		t.Fatalf("expected op: prefix, got: %s", id)
+	}
+	if !strings.Contains(id, "PolarKits/PolarSwarm") {
+		t.Fatalf("expected repo in op_id, got: %s", id)
+	}
+	if !strings.Contains(id, "comment.create") {
+		t.Fatalf("expected operation kind in op_id, got: %s", id)
+	}
+	if !strings.HasSuffix(id, ":1") {
+		t.Fatalf("expected attempt suffix :1, got: %s", id)
+	}
+}
+
+func TestBuildOpIDUniqueness(t *testing.T) {
+	id1 := BuildOpID("repo", 1, WriteCreateComment, "target", 1)
+	id2 := BuildOpID("repo", 1, WriteRemoveLabel, "target", 1)
+	id3 := BuildOpID("repo", 1, WriteCreateComment, "target", 2)
+	if id1 == id2 || id1 == id3 || id2 == id3 {
+		t.Fatalf("expected unique op_ids, got: %s, %s, %s", id1, id2, id3)
+	}
+}
+
+func TestWritePlanOpIDField(t *testing.T) {
+	result := testAgentResult()
+	plan, err := PlanAgentResultWrite(result, []string{"status:in-progress"}, workflow.StateReview, WriteOptions{
+		DryRun: true,
+	})
+	if err != nil {
+		t.Fatalf("PlanAgentResultWrite returned error: %v", err)
+	}
+
+	// Plan should not auto-populate OpID; caller sets it based on attempt count
+	if plan.OpID != "" {
+		t.Fatalf("expected empty OpID on fresh plan, got: %s", plan.OpID)
+	}
+}
+
 func TestPlanAgentResultWriteDryRun(t *testing.T) {
 	result := testAgentResult()
 	plan, err := PlanAgentResultWrite(result, []string{"area:github", "status:in-progress"}, workflow.StateReview, WriteOptions{

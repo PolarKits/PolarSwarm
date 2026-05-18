@@ -43,6 +43,7 @@ type WritePlan struct {
 	Repository string           `json:"repository"`
 	Issue      int              `json:"issue"`
 	DryRun     bool             `json:"dry_run"`
+	OpID       string           `json:"op_id,omitempty"` // Idempotency key: op:{repo}:{kind}:{target}:{attempt}
 	Operations []WriteOperation `json:"operations"`
 }
 
@@ -138,6 +139,13 @@ func RenderAgentResultComment(result agent.Result, now time.Time) (string, error
 
 	return fmt.Sprintf("[POLARSWARM:AGENT-RESULT] %s - %s\n\n```%s\n%s\n```\n",
 		result.Role, result.Status, AgentResultBlockType, content), nil
+}
+
+// BuildOpID creates an idempotency key for a write operation.
+// Format: op:{issue_ref}:{operation}:{target}:{attempt}
+// Corresponds to PolarSwarm.md idempotency design in section on "幂等重试".
+func BuildOpID(repo string, issue int, kind WriteOperationKind, target string, attempt int) string {
+	return fmt.Sprintf("op:%s/%d:%s:%s:%d", repo, issue, kind, target, attempt)
 }
 
 func (p WritePlan) Execute(ctx context.Context, writer IssueWriter, opts WriteOptions) error {
