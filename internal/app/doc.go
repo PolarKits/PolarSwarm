@@ -1,0 +1,1 @@
+// Package app owns CLI commands and module composition.

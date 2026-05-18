@@ -1,0 +1,1 @@
+// Package doctor owns health-check and capability probe logic.
