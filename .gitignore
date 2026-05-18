@@ -1,0 +1,18 @@
+# Local planning material. These files are intentionally not committed.
+specs/
+tasks/
+PolarSwarm.md
+PolarSwarm-DocsGithub-Audit-Report.md
+
+# Local runtime state.
+.polarswarm/
+
+# Build and test artifacts.
+bin/
+dist/
+coverage.out
+
+# OS/editor noise.
+.DS_Store
+*.swp
+
