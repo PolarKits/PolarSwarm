@@ -155,3 +155,79 @@ func TestCLIWritebackDryRunFixture(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIAcceptanceDryRunFixture(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "issues.json")
+	content := `{
+  "issues": [
+    {
+      "repository": {"owner": "PolarKits", "name": "PolarSwarm"},
+      "number": 7,
+      "title": "M1 acceptance",
+      "state": "open",
+      "labels": [{"name": "status:in-progress"}, {"name": "area:workflow"}],
+      "comments": []
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var out bytes.Buffer
+	cli := CLI{Stdout: &out}
+
+	err := cli.Run([]string{"acceptance", "dry-run", "--repo", "PolarKits/PolarSwarm", "--number", "7", "--fixture", path})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	output := out.String()
+	for _, want := range []string{
+		"acceptance dry-run for PolarKits/PolarSwarm#7",
+		"operation_id:",
+		"dispatchable: yes",
+		"state: in-progress -> review",
+		"```polarswarm-agent-result",
+		"add label: status:review",
+	} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("acceptance dry-run output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestCLIAcceptanceDryRunFailedDoesNotAdvanceLabel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "issues.json")
+	content := `{
+  "issues": [
+    {
+      "repository": {"owner": "PolarKits", "name": "PolarSwarm"},
+      "number": 8,
+      "title": "M1 acceptance failure",
+      "state": "open",
+      "labels": [{"name": "status:in-progress"}],
+      "comments": []
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var out bytes.Buffer
+	cli := CLI{Stdout: &out}
+
+	err := cli.Run([]string{"acceptance", "dry-run", "--repo", "PolarKits/PolarSwarm", "--number", "8", "--fixture", path, "--force-failure"})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	output := out.String()
+	if !strings.Contains(output, "state: in-progress -> in-progress") {
+		t.Fatalf("failed acceptance output missing stable state: %q", output)
+	}
+	if strings.Contains(output, "add label:") || strings.Contains(output, "remove label:") {
+		t.Fatalf("failed acceptance dry-run should not include label operations: %q", output)
+	}
+}

@@ -19,4 +19,4 @@ go run ./cmd/polarswarm version
 ## Task Plan
 
 Local execution specs live in `specs/`, which is intentionally ignored by git.
-Use `@specs/M0/T006-connect-github.md` next to connect the project to GitHub.
+M1 is complete; continue from `@specs/M2/README.md` for backend runner work.

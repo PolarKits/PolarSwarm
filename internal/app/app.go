@@ -43,6 +43,8 @@ func (c CLI) Run(args []string) error {
 	case "help", "-h", "--help":
 		printHelp(c.Stdout)
 		return nil
+	case "acceptance":
+		return c.runAcceptance(args[1:])
 	case "config":
 		return c.runConfig(args[1:])
 	case "issue":
@@ -55,6 +57,121 @@ func (c CLI) Run(args []string) error {
 	default:
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func (c CLI) runAcceptance(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing acceptance command")
+	}
+	if args[0] != "dry-run" {
+		return fmt.Errorf("unknown acceptance command %q", args[0])
+	}
+
+	var repo gh.Repository
+	var fixturePath string
+	number := 0
+	role := "developer"
+	branch := ""
+	targetLabel := "status:in-progress"
+	forceFailure := false
+
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--repo":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--repo requires owner/name")
+			}
+			parsed, err := parseRepository(args[i])
+			if err != nil {
+				return err
+			}
+			repo = parsed
+		case "--number":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--number requires an issue number")
+			}
+			parsed, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("--number requires an integer: %w", err)
+			}
+			number = parsed
+		case "--fixture":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--fixture requires a path")
+			}
+			fixturePath = args[i]
+		case "--target-label":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--target-label requires a status label")
+			}
+			targetLabel = args[i]
+		case "--role":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--role requires a role")
+			}
+			role = args[i]
+		case "--branch":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--branch requires a branch")
+			}
+			branch = args[i]
+		case "--force-failure":
+			forceFailure = true
+		default:
+			return fmt.Errorf("unknown acceptance dry-run argument %q", args[i])
+		}
+	}
+
+	if fixturePath == "" {
+		return fmt.Errorf("acceptance dry-run requires --fixture")
+	}
+
+	client, err := gh.LoadFakeClient(fixturePath)
+	if err != nil {
+		return err
+	}
+	cfg := config.Config{
+		GitHub: config.GitHubConfig{
+			Owner: repo.Owner,
+			Repo:  repo.Name,
+		},
+		Workflow: config.WorkflowConfig{
+			TargetLabel: targetLabel,
+			DryRun:      true,
+		},
+	}
+	loop := AcceptanceLoop{
+		Reader: gh.IssueReader{Client: client},
+		Runner: agent.MockRunner{},
+	}
+	result, err := loop.Run(context.Background(), AcceptanceOptions{
+		Config:       cfg,
+		Repository:   repo,
+		IssueNumber:  number,
+		Role:         role,
+		Branch:       branch,
+		ForceFailure: forceFailure,
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.Stdout, "acceptance dry-run for %s#%d\n", repo, number)
+	fmt.Fprintf(c.Stdout, "operation_id: %s\n", result.OperationID)
+	if result.Skipped {
+		fmt.Fprintf(c.Stdout, "skipped: %s\n", result.SkipReason)
+		return nil
+	}
+	fmt.Fprintf(c.Stdout, "dispatchable: yes\n")
+	fmt.Fprintf(c.Stdout, "state: %s -> %s\n", result.Current, result.Target)
+	fmt.Fprint(c.Stdout, result.WritePlan.DryRunText())
+	return nil
 }
 
 func (c CLI) runWriteback(args []string) error {
@@ -303,6 +420,7 @@ func printHelp(w io.Writer) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  polarswarm help")
+	fmt.Fprintln(w, "  polarswarm acceptance dry-run --repo owner/name --number n --fixture path [--target-label status:state] [--force-failure]")
 	fmt.Fprintln(w, "  polarswarm config check [--config path]")
 	fmt.Fprintln(w, "  polarswarm issue read --repo owner/name --number n --fixture path")
 	fmt.Fprintln(w, "  polarswarm writeback dry-run --repo owner/name --number n --fixture path [--target-state state]")
