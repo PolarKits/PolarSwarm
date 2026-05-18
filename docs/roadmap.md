@@ -94,7 +94,7 @@ M1 acceptance:
 
 ## M2 Agent Backend
 
-Status: Todo.
+Status: Done.
 
 Purpose:
 
@@ -121,7 +121,7 @@ M2 acceptance:
 
 ## M3 Doctor And Readonly TUI
 
-Status: Todo.
+Status: Done.
 
 Purpose:
 
