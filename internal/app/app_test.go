@@ -72,3 +72,46 @@ func TestCLIConfigCheckMissingPath(t *testing.T) {
 		t.Fatal("expected error for missing --config path")
 	}
 }
+
+func TestCLIIssueReadFixture(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "issues.json")
+	content := `{
+  "issues": [
+    {
+      "repository": {"owner": "PolarKits", "name": "PolarSwarm"},
+      "number": 3,
+      "title": "GitHub reader",
+      "state": "open",
+      "labels": [{"name": "status:new"}, {"name": "area:github"}],
+      "comments": [{"id": 1, "author": "alice", "body": "ready"}]
+    }
+  ]
+}`
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var out bytes.Buffer
+	cli := CLI{Stdout: &out}
+
+	err := cli.Run([]string{"issue", "read", "--repo", "PolarKits/PolarSwarm", "--number", "3", "--fixture", path})
+	if err != nil {
+		t.Fatalf("Run returned error: %v", err)
+	}
+
+	output := out.String()
+	for _, want := range []string{"issue PolarKits/PolarSwarm#3", "GitHub reader", "status:new, area:github", "comments: 1"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("issue read output missing %q: %q", want, output)
+		}
+	}
+}
+
+func TestCLIIssueReadRequiresFixture(t *testing.T) {
+	cli := CLI{Stdout: &bytes.Buffer{}}
+
+	err := cli.Run([]string{"issue", "read", "--repo", "PolarKits/PolarSwarm", "--number", "3"})
+	if err == nil {
+		t.Fatal("expected error for missing fixture")
+	}
+}

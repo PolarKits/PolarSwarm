@@ -1,11 +1,15 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/PolarKits/PolarSwarm/internal/config"
+	gh "github.com/PolarKits/PolarSwarm/internal/github"
 )
 
 const Version = "0.0.0-dev"
@@ -39,6 +43,8 @@ func (c CLI) Run(args []string) error {
 		return nil
 	case "config":
 		return c.runConfig(args[1:])
+	case "issue":
+		return c.runIssue(args[1:])
 	case "version", "-v", "--version":
 		fmt.Fprintf(c.Stdout, "polarswarm %s\n", Version)
 		return nil
@@ -78,11 +84,89 @@ func (c CLI) runConfig(args []string) error {
 	return nil
 }
 
+func (c CLI) runIssue(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("missing issue command")
+	}
+	if args[0] != "read" {
+		return fmt.Errorf("unknown issue command %q", args[0])
+	}
+
+	var repo gh.Repository
+	var fixturePath string
+	number := 0
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--repo":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--repo requires owner/name")
+			}
+			owner, name, ok := strings.Cut(args[i], "/")
+			if !ok || owner == "" || name == "" {
+				return fmt.Errorf("--repo must be owner/name")
+			}
+			repo = gh.Repository{Owner: owner, Name: name}
+		case "--number":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--number requires an issue number")
+			}
+			parsed, err := strconv.Atoi(args[i])
+			if err != nil {
+				return fmt.Errorf("--number requires an integer: %w", err)
+			}
+			number = parsed
+		case "--fixture":
+			i++
+			if i >= len(args) {
+				return fmt.Errorf("--fixture requires a path")
+			}
+			fixturePath = args[i]
+		default:
+			return fmt.Errorf("unknown issue read argument %q", args[i])
+		}
+	}
+
+	if fixturePath == "" {
+		return fmt.Errorf("issue read currently requires --fixture")
+	}
+
+	client, err := gh.LoadFakeClient(fixturePath)
+	if err != nil {
+		return err
+	}
+	issue, err := (gh.IssueReader{Client: client}).ReadIssue(context.Background(), repo, number)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.Stdout, "issue %s#%d %s [%s]\n", issue.Repository, issue.Number, issue.Title, issue.State)
+	fmt.Fprintf(c.Stdout, "labels: %s\n", formatLabels(issue.Labels))
+	fmt.Fprintf(c.Stdout, "comments: %d\n", issue.Comments.Count)
+	if issue.Comments.Latest != nil {
+		fmt.Fprintf(c.Stdout, "latest_comment: %s\n", issue.Comments.Latest.Author)
+	}
+	return nil
+}
+
+func formatLabels(labels []gh.Label) string {
+	if len(labels) == 0 {
+		return "(none)"
+	}
+	names := make([]string, 0, len(labels))
+	for _, label := range labels {
+		names = append(names, label.Name)
+	}
+	return strings.Join(names, ", ")
+}
+
 func printHelp(w io.Writer) {
 	fmt.Fprintln(w, "PolarSwarm - local IssueOps orchestrator")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Usage:")
 	fmt.Fprintln(w, "  polarswarm help")
 	fmt.Fprintln(w, "  polarswarm config check [--config path]")
+	fmt.Fprintln(w, "  polarswarm issue read --repo owner/name --number n --fixture path")
 	fmt.Fprintln(w, "  polarswarm version")
 }
