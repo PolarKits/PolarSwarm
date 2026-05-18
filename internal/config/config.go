@@ -10,6 +10,14 @@ import (
 	"strings"
 )
 
+// sectionKeys defines known keys per section for unknown field detection.
+var sectionKeys = map[string]map[string]bool{
+	"github":      {"owner": true, "repo": true},
+	"repository": {"owner": true, "name": true},
+	"workflow":   {"target_label": true, "dry_run": true, "confirm_writes": true},
+	"runtime":    {"dry_run": true, "confirm_writes": true},
+}
+
 const DefaultPath = ".polarswarm/core.toml"
 
 type Config struct {
@@ -77,6 +85,7 @@ func parse(path, content string) (Config, error) {
 	}
 
 	section := ""
+	var unknownWarnings []string
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	lineNo := 0
 	for scanner.Scan() {
@@ -105,12 +114,22 @@ func parse(path, content string) (Config, error) {
 			return Config{}, fmt.Errorf("%s:%d: key is required", path, lineNo)
 		}
 
+		if known, ok := sectionKeys[section]; ok && !known[key] {
+			unknownWarnings = append(unknownWarnings, fmt.Sprintf("%s:%d: unknown field [%s].%s", path, lineNo, section, key))
+			continue
+		}
+
 		if err := assign(&cfg, path, lineNo, section, key, raw); err != nil {
 			return Config{}, err
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return Config{}, fmt.Errorf("%s: scan config: %w", path, err)
+	}
+
+	// Emit unknown field warnings (non-fatal).
+	for _, w := range unknownWarnings {
+		fmt.Fprintf(os.Stderr, "WARNING: %s\n", w)
 	}
 
 	return cfg, nil

@@ -130,6 +130,20 @@ token = "ghp_should_not_appear"
 	}
 }
 
+func TestUnknownFieldWarning(t *testing.T) {
+	path := writeConfig(t, `
+[github]
+owner = "PolarKits"
+repo = "PolarSwarm"
+unknown_field = "should_warn"
+`)
+
+	_, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load should not error on unknown field, got: %v", err)
+	}
+}
+
 func writeConfig(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "core.toml")
